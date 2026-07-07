@@ -1,0 +1,58 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.popup {
+  width: 280px;
+  padding: 16px;
+}
+
+.popup h1 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.score {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.message {
+  font-size: 13px;
+  color: #444;
+  margin: 0 0 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.actions .cancel {
+  background: #eee;
+}
+
+.actions .proceed {
+  background: #1565c0;
+  color: white;
+}
+
+.dev-slider {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #ccc;
+  font-size: 12px;
+}
+
+.dev-slider input {
+  width: 100%;
+}
