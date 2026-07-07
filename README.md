@@ -11,7 +11,7 @@
 
 This is the product. It runs entirely in the user's browser. It hooks the wallet signing flow, decodes the pending transaction, requests a risk score for the destination, and renders a four-tier warning. It never blocks — it warns, and the user decides.
 
-> **Status:** Early build. The warning UI exists as a stub driven by hardcoded scores. Real signing interception and a live score connection are **not yet built** — see the roadmap.
+> **Status:** Early build. The popup renders the oracle adapter's score across all four warning tiers (stub score). Real signing interception and a live score connection are **not yet built** — see the roadmap.
 
 ## What it does
 
@@ -77,7 +77,7 @@ grydlock-extension/
 ## Roadmap
 
 - [x] Popup renders one score across the four tiers. _(stub)_
-- [ ] Fetch the score through the oracle adapter (stub score) — prove the query path end to end.
+- [x] Fetch the score through the oracle adapter (stub score) — prove the query path end to end.
 - [ ] Freighter interception: proxy `signTransaction`, decode the XDR, extract the destination, route it through the adapter.
 - [ ] Swap the stub score for a live one from the adapter.
 - [ ] Generalise interception beyond Freighter.
