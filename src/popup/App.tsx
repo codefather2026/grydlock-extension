@@ -6,26 +6,44 @@ import './App.css'
 
 const PLACEHOLDER_DESTINATION = 'GABCDEXAMPLE0000000000000000000000000000000000000000000'
 
+type LoadState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; score: number }
+
 export default function App() {
-  const [score, setScore] = useState<number | null>(null)
+  const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [devOverride, setDevOverride] = useState<number | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let cancelled = false
-    getScore(PLACEHOLDER_DESTINATION).then((result) => {
-      if (!cancelled) setScore(result)
-    })
+    setState({ status: 'loading' })
+    getScore(PLACEHOLDER_DESTINATION)
+      .then((score) => {
+        if (!cancelled) setState({ status: 'ready', score })
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: 'error' })
+      })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
 
-  const displayScore = devOverride ?? score
-
-  if (displayScore === null) {
+  if (state.status === 'loading') {
     return <div className="popup">Checking destination…</div>
   }
 
+  if (state.status === 'error') {
+    return (
+      <div className="popup">
+        <p className="message">Could not reach the risk oracle.</p>
+        <button className="proceed" onClick={() => setAttempt((n) => n + 1)}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  const displayScore = devOverride ?? state.score
   const tier = tierForScore(displayScore)
 
   return (
