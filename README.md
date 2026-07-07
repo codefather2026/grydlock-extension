@@ -56,23 +56,67 @@ Stellar has no universal injected wallet provider — each wallet exposes its ow
 
 The risk score itself is fetched through [`grydlock-oracle-adapter`](../grydlock-oracle-adapter); this repo holds no scoring logic.
 
-## Project Layout (target)
+## Project Layout
 
 ```
 grydlock-extension/
-├── manifest.json          # MV3, popup + (later) content script
+├── manifest.json          # MV3, popup only
 ├── src/
-│   ├── popup/             # React warning UI + tier logic
-│   ├── intercept/         # Freighter signing proxy  (phase 2)
-│   └── decode/            # XDR → destination extraction  (phase 2)
+│   ├── adapter/            # Oracle adapter stub — getScore(destination)
+│   ├── lib/                # Score → tier mapping
+│   └── popup/              # React warning UI (App, dev slider, HTML/entry)
+│       ├── intercept/      # Freighter signing proxy  (phase 2, not yet built)
+│       └── decode/         # XDR → destination extraction  (phase 2, not yet built)
 └── README.md
 ```
 
+## How the Pieces Connect
+
+```
+manifest.json (action.default_popup)
+        │
+        ▼
+src/popup/index.html
+        │
+        ▼
+src/popup/main.tsx  ── mounts ──▶  src/popup/App.tsx
+                                        │
+                                        ├─▶ src/adapter/oracleAdapter.ts
+                                        │     getScore(destination) → Promise<number>
+                                        │     (stub standing in for the real
+                                        │      grydlock-oracle-adapter package)
+                                        │
+                                        ├─▶ src/lib/tiers.ts
+                                        │     tierForScore(score) → { tier, label, colour, message }
+                                        │
+                                        └─▶ src/popup/DevScoreSlider.tsx
+                                              (dev-only, gated on import.meta.env.DEV;
+                                               overrides the displayed score so all four
+                                               tiers can be exercised without the adapter)
+```
+
+- **Entry point**: `manifest.json` points Chrome at `src/popup/index.html` as the popup.
+- **Bootstrap**: `index.html` loads `main.tsx`, which mounts `App.tsx` into `#root`.
+- **Scoring**: on mount, `App.tsx` calls `getScore()` from `src/adapter/oracleAdapter.ts` for a
+  placeholder destination. This is the only source of the displayed score — nothing is hardcoded
+  in the popup.
+- **Tiering**: the resolved score is passed through `tierForScore()` in `src/lib/tiers.ts`, which
+  maps it to one of the four tiers above with a label, colour, and message.
+- **Dev testing**: in dev builds, `DevScoreSlider.tsx` renders below the tier UI and lets a
+  developer override the displayed score locally, so all four tiers are reachable without waiting
+  on real adapter data.
+- **Build**: `vite.config.ts` builds `src/popup/index.html` as the only entry and copies
+  `manifest.json` into `dist/`, so the built `dist/manifest.json`'s `default_popup` path matches
+  the built output layout (`dist/src/popup/index.html`).
+- **Tests**: `src/adapter/oracleAdapter.test.ts` and `src/lib/tiers.test.ts` cover the scoring and
+  tiering logic independently of the UI.
+
 ## Develop
 
-1. Build the extension (or use the plain popup stub during early work).
-2. Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, select the build output.
-3. Open the popup. During early work the score is hardcoded; drag the dev control to see all four tiers.
+1. `npm install`
+2. `npm run build` (or `npm run dev` for a local dev server).
+3. Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, select the `dist/` output.
+4. Open the popup. The score comes from the adapter stub; in dev builds, drag the dev control to see all four tiers.
 
 ## Roadmap
 
