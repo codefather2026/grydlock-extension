@@ -1,35 +1,24 @@
 import {
   WINDOW_REQUEST_TYPE,
   WINDOW_RESPONSE_TYPE,
-  type RuntimeDecisionMadeMessage,
-  type RuntimeRequestDecisionMessage,
+  type RuntimeSignOutcomeMessage,
+  type RuntimeSignRequestMessage,
 } from './protocol'
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return
-  const data = event.data as
-    | { type?: string; requestId?: string; destination?: string; asset?: string; score?: number }
-    | undefined
-  if (
-    data?.type !== WINDOW_REQUEST_TYPE ||
-    !data.requestId ||
-    !data.destination ||
-    typeof data.score !== 'number'
-  ) {
-    return
-  }
+  const data = event.data as { type?: string; requestId?: string; xdr?: string } | undefined
+  if (data?.type !== WINDOW_REQUEST_TYPE || !data.requestId || !data.xdr) return
 
-  const message: RuntimeRequestDecisionMessage = {
-    type: 'REQUEST_DECISION',
+  const message: RuntimeSignRequestMessage = {
+    type: 'SIGN_REQUEST',
     requestId: data.requestId,
-    destination: data.destination,
-    asset: data.asset,
-    score: data.score,
+    xdr: data.xdr,
   }
 
-  chrome.runtime.sendMessage(message, (response: RuntimeDecisionMadeMessage | undefined) => {
+  chrome.runtime.sendMessage(message, (response: RuntimeSignOutcomeMessage | undefined) => {
     window.postMessage(
-      { type: WINDOW_RESPONSE_TYPE, requestId: data.requestId, decision: response?.decision ?? 'cancel' },
+      { type: WINDOW_RESPONSE_TYPE, requestId: data.requestId, outcome: response?.outcome ?? 'cancel' },
       '*',
     )
   })

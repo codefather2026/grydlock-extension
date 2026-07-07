@@ -1,24 +1,6 @@
-import { createSignGuard, type SignTransactionFn } from './signGuard'
-import { extractDestination } from '../decode/decodeTransaction'
-import { getScore } from '../adapter/oracleAdapter'
-import { WINDOW_REQUEST_TYPE, WINDOW_RESPONSE_TYPE, type Decision } from './protocol'
+import { WINDOW_REQUEST_TYPE, WINDOW_RESPONSE_TYPE, type Outcome } from './protocol'
 
-function requestDecision(info: { destination: string; asset?: string; score: number }): Promise<Decision> {
-  const requestId = crypto.randomUUID()
-
-  return new Promise((resolve) => {
-    function onMessage(event: MessageEvent) {
-      if (event.source !== window) return
-      const data = event.data as { type?: string; requestId?: string; decision?: string } | undefined
-      if (data?.type !== WINDOW_RESPONSE_TYPE || data.requestId !== requestId) return
-      window.removeEventListener('message', onMessage)
-      resolve(data.decision === 'proceed' ? 'proceed' : 'cancel')
-    }
-    window.addEventListener('message', onMessage)
-    window.postMessage({ type: WINDOW_REQUEST_TYPE, requestId, ...info }, '*')
-  })
-}
-
+type SignTransactionFn = (xdr: string, opts?: unknown) => Promise<unknown>
 type WrappedSignTransaction = SignTransactionFn & { __grydlockWrapped?: boolean }
 
 interface FreighterApi {
@@ -26,14 +8,40 @@ interface FreighterApi {
   [key: string]: unknown
 }
 
+/**
+ * Asks the isolated-world bridge (and, behind it, the background worker) to
+ * decode and score this xdr and return an outcome. Decoding and scoring
+ * happen off the page — this script stays a thin proxy so it doesn't ship
+ * the Stellar SDK into every page it runs on.
+ */
+function requestOutcome(xdr: string): Promise<Outcome> {
+  const requestId = crypto.randomUUID()
+
+  return new Promise((resolve) => {
+    function onMessage(event: MessageEvent) {
+      if (event.source !== window) return
+      const data = event.data as { type?: string; requestId?: string; outcome?: string } | undefined
+      if (data?.type !== WINDOW_RESPONSE_TYPE || data.requestId !== requestId) return
+      window.removeEventListener('message', onMessage)
+      const outcome = data.outcome
+      resolve(outcome === 'proceed' || outcome === 'allow' ? outcome : 'cancel')
+    }
+    window.addEventListener('message', onMessage)
+    window.postMessage({ type: WINDOW_REQUEST_TYPE, requestId, xdr }, '*')
+  })
+}
+
 function wrap(api: FreighterApi) {
   const original = api.signTransaction
   if (typeof original !== 'function' || original.__grydlockWrapped) return
 
-  const guarded = createSignGuard(
-    { extractDestination, getScore, requestDecision },
-    original.bind(api),
-  ) as WrappedSignTransaction
+  const guarded: WrappedSignTransaction = async (xdr, opts) => {
+    const outcome = await requestOutcome(xdr)
+    if (outcome === 'cancel') {
+      throw new Error('Rejected by Gryd Lock: user cancelled after reviewing the risk warning.')
+    }
+    return original.call(api, xdr, opts)
+  }
   guarded.__grydlockWrapped = true
   api.signTransaction = guarded
 }

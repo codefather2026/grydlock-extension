@@ -1,14 +1,19 @@
 export type Decision = 'proceed' | 'cancel'
+export type Outcome = 'allow' | Decision
 
-export const WINDOW_REQUEST_TYPE = 'GRYDLOCK_REQUEST_DECISION'
-export const WINDOW_RESPONSE_TYPE = 'GRYDLOCK_DECISION_RESPONSE'
+export const WINDOW_REQUEST_TYPE = 'GRYDLOCK_REQUEST_OUTCOME'
+export const WINDOW_RESPONSE_TYPE = 'GRYDLOCK_OUTCOME_RESPONSE'
 
-export interface RuntimeRequestDecisionMessage {
-  type: 'REQUEST_DECISION'
+export interface RuntimeSignRequestMessage {
+  type: 'SIGN_REQUEST'
   requestId: string
-  destination: string
-  asset?: string
-  score: number
+  xdr: string
+}
+
+export interface RuntimeSignOutcomeMessage {
+  type: 'SIGN_OUTCOME'
+  requestId: string
+  outcome: Outcome
 }
 
 export interface RuntimeDecisionMadeMessage {

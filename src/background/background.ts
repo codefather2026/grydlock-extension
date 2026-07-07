@@ -1,20 +1,31 @@
-import type { RuntimeDecisionMadeMessage, RuntimeRequestDecisionMessage } from '../intercept/protocol'
+import { extractDestination } from '../decode/decodeTransaction'
+import { getScore } from '../adapter/oracleAdapter'
+import { resolveOutcome } from '../intercept/resolveOutcome'
+import type {
+  Decision,
+  RuntimeDecisionMadeMessage,
+  RuntimeSignOutcomeMessage,
+  RuntimeSignRequestMessage,
+} from '../intercept/protocol'
 
-type IncomingMessage = RuntimeRequestDecisionMessage | RuntimeDecisionMadeMessage
+type IncomingMessage = RuntimeSignRequestMessage | RuntimeDecisionMadeMessage
 
-const pendingResolvers = new Map<string, (message: RuntimeDecisionMadeMessage) => void>()
+const pendingDecisions = new Map<string, (decision: Decision) => void>()
 
-chrome.runtime.onMessage.addListener((message: IncomingMessage, _sender, sendResponse) => {
-  if (message.type === 'REQUEST_DECISION') {
-    pendingResolvers.set(message.requestId, sendResponse)
+function requestDecision(
+  requestId: string,
+  info: { destination: string; asset?: string; score: number },
+): Promise<Decision> {
+  return new Promise((resolve) => {
+    pendingDecisions.set(requestId, resolve)
 
     const params = new URLSearchParams({
       mode: 'intercept',
-      requestId: message.requestId,
-      destination: message.destination,
-      score: String(message.score),
+      requestId,
+      destination: info.destination,
+      score: String(info.score),
     })
-    if (message.asset) params.set('asset', message.asset)
+    if (info.asset) params.set('asset', info.asset)
 
     chrome.windows.create({
       url: chrome.runtime.getURL(`src/popup/index.html?${params.toString()}`),
@@ -22,14 +33,31 @@ chrome.runtime.onMessage.addListener((message: IncomingMessage, _sender, sendRes
       width: 320,
       height: 420,
     })
+  })
+}
+
+chrome.runtime.onMessage.addListener((message: IncomingMessage, _sender, sendResponse) => {
+  if (message.type === 'SIGN_REQUEST') {
+    resolveOutcome(message.xdr, {
+      extractDestination,
+      getScore,
+      requestDecision: (info) => requestDecision(message.requestId, info),
+    }).then((outcome) => {
+      const response: RuntimeSignOutcomeMessage = {
+        type: 'SIGN_OUTCOME',
+        requestId: message.requestId,
+        outcome,
+      }
+      sendResponse(response)
+    })
 
     return true
   }
 
   if (message.type === 'DECISION_MADE') {
-    const resolve = pendingResolvers.get(message.requestId)
-    resolve?.(message)
-    pendingResolvers.delete(message.requestId)
+    const resolve = pendingDecisions.get(message.requestId)
+    resolve?.(message.decision)
+    pendingDecisions.delete(message.requestId)
   }
 
   return undefined
