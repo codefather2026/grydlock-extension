@@ -137,6 +137,16 @@ src/background/background.ts      (service worker)
   extension via `chrome.runtime`. Decoding and scoring happen in the background worker rather than
   in `mainWorldEntry.ts` so the Stellar SDK ships once per browser session instead of being
   injected into every page (`mainWorld.js` is ~2&nbsp;KB; the SDK lives in `background.js` instead).
+- **Keyboard-first approval**: the warning is an approval dialog for a signing request, so it is
+  fully operable without a mouse. `src/popup/TierWarning.tsx` renders as a modal dialog
+  (`role="dialog"`, `aria-modal`, labelled by the tier heading) and:
+  - focuses **Cancel** on open for every tier — the safe choice is always one keypress away, and a
+    High/Critical warning never makes you hunt for focus;
+  - traps focus in the popup — Tab and Shift+Tab cycle through its interactive elements and wrap at
+    the ends, so focus can't land on browser or extension UI while a decision is pending;
+  - treats **Escape** as Cancel, routed through the same `onCancel` path as the button, so an
+    intercepted request declines identically however it was dismissed;
+  - leaves Enter/Space activation to native `<button>` behaviour rather than re-implementing it.
 - **Pure logic**: `src/intercept/resolveOutcome.ts` is the testable core — given a decode function,
   a score function, and a decision function, it returns `'allow' | 'proceed' | 'cancel'` with no
   Chrome APIs involved, so it's covered by ordinary Vitest unit tests.
@@ -147,7 +157,10 @@ src/background/background.ts      (service worker)
   the decode/scoring/decision logic directly; `src/adapter/oracleAdapter.test.ts` and
   `src/lib/tiers.test.ts` cover the adapter stub and tier mapping; `src/popup/App.test.tsx` covers
   both the popup's default (loading/error/retry/dev-slider) and intercept-mode rendering, against a
-  mocked adapter and a stubbed `chrome.runtime`.
+  mocked adapter and a stubbed `chrome.runtime`; `src/popup/TierWarning.test.tsx` covers the
+  keyboard contract above (default focus, Tab/Shift+Tab cycling and wrapping, the focus trap,
+  Escape-to-cancel across all four tiers, Enter/Space activation) using
+  `@testing-library/user-event`.
 
 ## Develop
 

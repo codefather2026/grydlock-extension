@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import App from './App'
 import * as adapter from '../adapter/oracleAdapter'
 
@@ -104,5 +105,26 @@ describe('App in intercept mode', () => {
       decision: 'cancel',
     })
     expect(closeSpy).toHaveBeenCalled()
+  })
+
+  it('sends cancel and closes when Escape is pressed', async () => {
+    window.history.pushState(null, '', '?mode=intercept&requestId=req-1&destination=GDEST&score=85')
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => {})
+    render(<App />)
+
+    await userEvent.setup().keyboard('{Escape}')
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: 'DECISION_MADE',
+      requestId: 'req-1',
+      decision: 'cancel',
+    })
+    expect(closeSpy).toHaveBeenCalled()
+  })
+
+  it('focuses Cancel so a critical warning can be dismissed immediately', () => {
+    window.history.pushState(null, '', '?mode=intercept&requestId=req-1&destination=GDEST&score=85')
+    render(<App />)
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
   })
 })
