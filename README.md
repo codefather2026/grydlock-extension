@@ -137,6 +137,8 @@ src/background/background.ts      (service worker)
   extension via `chrome.runtime`. Decoding and scoring happen in the background worker rather than
   in `mainWorldEntry.ts` so the Stellar SDK ships once per browser session instead of being
   injected into every page (`mainWorld.js` is ~2&nbsp;KB; the SDK lives in `background.js` instead).
+  `npm run build` enforces this with content-script bundle budgets: `mainWorld.js` must stay under
+  5&nbsp;KB and `bridge.js` under 3&nbsp;KB, with measured sizes printed in local and CI build logs.
 - **Pure logic**: `src/intercept/resolveOutcome.ts` is the testable core — given a decode function,
   a score function, and a decision function, it returns `'allow' | 'proceed' | 'cancel'` with no
   Chrome APIs involved, so it's covered by ordinary Vitest unit tests.
@@ -168,7 +170,9 @@ npm test           # Vitest
 npm run build      # tsc -b && vite build && node scripts/build-extension.mjs
 ```
 
-All four run in CI (`.github/workflows/ci.yml`) on every push to `main` and on every pull request.
+`npm run build` also reports content-script bundle sizes and fails if the documented budgets are
+exceeded. All four gates run in CI (`.github/workflows/ci.yml`) on every push to `main` and on every
+pull request, and CI adds the bundle-size table to the job summary for PR visibility.
 
 ## Roadmap
 
