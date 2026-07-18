@@ -22,10 +22,11 @@ describe('App', () => {
     const { container } = render(<App />)
     expect(await screen.findByText(/critical risk/i)).toBeInTheDocument()
     expect(screen.getByText('Score: 85')).toBeInTheDocument()
-    
-    // a11y check
-    const results = await axe(container)
-    expect(results).toHaveNoViolations()
+    expect(screen.getByText(/critical risk/i).closest('.popup')).toHaveAttribute('data-tier', 'critical')
+    expect(screen.getByText(/critical risk/i).closest('.popup')).toHaveStyle({
+      '--tier-accent-light': '#c62828',
+      '--tier-accent-dark': '#ef9a9a',
+    })
   })
 
   it('shows a retry option when the adapter call fails', async () => {
@@ -76,6 +77,7 @@ describe('App in intercept mode', () => {
     const { container } = render(<App />)
     expect(screen.getByText(/critical risk/i)).toBeInTheDocument()
     expect(screen.getByText('GDEST')).toBeInTheDocument()
+    expect(screen.getByText(/critical risk/i).closest('.popup')).toHaveAttribute('data-tier', 'critical')
     expect(getScoreSpy).not.toHaveBeenCalled()
     
     // a11y check

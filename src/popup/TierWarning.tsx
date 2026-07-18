@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { TierInfo } from '../lib/tiers'
 
 interface TierWarningProps {
@@ -27,12 +27,15 @@ export default function TierWarning({
   ].filter(Boolean).join(' ')
 
   return (
-    <div 
-      className="popup" 
-      style={{ borderTop: `4px solid ${tier.colour}` }}
-      role="alertdialog"
-      aria-labelledby="tier-warning-title"
-      aria-describedby={describedByIds}
+    <div
+      className="popup"
+      data-tier={tier.tier}
+      style={
+        {
+          '--tier-accent-light': tier.colour,
+          '--tier-accent-dark': tier.darkColour,
+        } as CSSProperties
+      }
     >
       {/* Icon paired with label so tier is never conveyed by colour alone (WCAG 1.4.1) */}
       <h1 id="tier-warning-title" aria-live="assertive">

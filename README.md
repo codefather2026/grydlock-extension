@@ -147,11 +147,19 @@ src/background/background.ts      (service worker)
 - **Graceful degradation**: transactions with no single determinable destination (malformed XDR, no
   destination-bearing operation, or multiple distinct destinations) resolve to `'allow'` — Gryd Lock
   never blocks what it can't assess.
+- **Destination-bearing operations**: `payment`, `pathPaymentStrictSend`/`pathPaymentStrictReceive`,
+  `createAccount`, `createClaimableBalance`, and `claimClaimableBalance`. A `createClaimableBalance`
+  contributes one candidate destination per claimant, since any of them may later claim it; a
+  transaction with more than one claimant is a multiple-distinct-destination case and resolves to
+  `'allow'` like any other batch, pending the dedicated multi-destination scoring in #20.
+  `claimClaimableBalance` carries no destination account in the operation itself — only an opaque
+  balance ID — so the balance ID is scored in its place.
 - **Tests**: `src/decode/decodeTransaction.test.ts` and `src/intercept/resolveOutcome.test.ts` cover
   the decode/scoring/decision logic directly; `src/adapter/oracleAdapter.test.ts` and
   `src/lib/tiers.test.ts` cover the adapter stub and tier mapping; `src/popup/App.test.tsx` covers
   both the popup's default (loading/error/retry/dev-slider) and intercept-mode rendering, against a
-  mocked adapter and a stubbed `chrome.runtime`.
+  mocked adapter and a stubbed `chrome.runtime`, including the theme-aware tier accent variables
+  used by the popup.
 
 ## Develop
 
@@ -161,18 +169,30 @@ src/background/background.ts      (service worker)
 3. Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, select the `dist/` output.
 4. Open the popup from the toolbar to exercise the dev/testing flow — the score comes from the
    adapter stub, and in dev builds the dev control lets you drag through all four tiers. To exercise
-   real interception, visit a page with Freighter installed and call `signTransaction`.
+   real interception, visit a page with Freighter installed and call `signTransaction`. The popup
+   follows the browser or OS `prefers-color-scheme` setting in both the default preview and
+   interception flows.
 
 ## Quality Gates
 
 ```bash
-npm run lint       # ESLint
-npm run typecheck  # tsc --noEmit
-npm test           # Vitest
-npm run build      # tsc -b && vite build && node scripts/build-extension.mjs
+npm run lint           # ESLint
+npm run typecheck      # tsc --noEmit
+npm run test:coverage  # Vitest + v8 coverage (enforces thresholds)
+npm run build          # tsc -b && vite build && node scripts/build-extension.mjs
 ```
 
 All four run in CI (`.github/workflows/ci.yml`) on every push to `main` and on every pull request.
+
+**Coverage policy.** Thresholds are configured in `vite.config.ts` and enforced by
+`npm run test:coverage` (CI runs this instead of bare `vitest run`). The following
+files are excluded from coverage because they require Chrome APIs or a real DOM
+that unit tests cannot provide:
+
+- `src/intercept/mainWorldEntry.ts` / `src/intercept/bridgeEntry.ts` — depend on `chrome.*` APIs and `postMessage` across extension worlds; covered by the e2e harness.
+- `src/background/background.ts` — service-worker `chrome.*` calls; covered by the e2e harness.
+- `src/popup/main.tsx` — React entry-point boilerplate.
+- `src/intercept/protocol.ts` — constant and type definitions only.
 
 ## Roadmap
 
