@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type { TierInfo } from '../lib/tiers'
 
 interface TierWarningProps {
@@ -33,7 +33,16 @@ export default function TierWarning({
         : criticalConfirmation.trim().toUpperCase() === criticalPhrase
 
   return (
-    <div className="popup" style={{ borderTop: `4px solid ${tier.colour}` }}>
+    <div
+      className="popup"
+      data-tier={tier.tier}
+      style={
+        {
+          '--tier-accent-light': tier.colour,
+          '--tier-accent-dark': tier.darkColour,
+        } as CSSProperties
+      }
+    >
       {/* Icon paired with label so tier is never conveyed by colour alone (WCAG 1.4.1) */}
       <h1>
         <span className="tier-icon" aria-hidden="true">
