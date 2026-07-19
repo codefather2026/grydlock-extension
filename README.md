@@ -48,6 +48,10 @@ User proceeds or cancels — the extension never blocks
 
 Stellar has no universal injected wallet provider — each wallet exposes its own signing API, so interception is per-wallet, not global. Gryd Lock targets **Freighter** first (the most widely used browser wallet), proves the interception pattern, then generalises to xBull, Albedo, and Lobstr.
 
+## Accessibility
+
+The warning popup is fully accessible to screen reader users (e.g., VoiceOver, NVDA). It implements the `alertdialog` ARIA role and uses an `assertive` live region to ensure the risk tier is announced immediately upon opening. The popup wires the risk level, destination, and warning message together using `aria-describedby` so the complete context is conveyed coherently without relying on visual cues.
+
 ## Tech Stack
 
 - **TypeScript** — extension logic
@@ -68,11 +72,25 @@ grydlock-extension/
 │   ├── adapter/                # Oracle adapter stub — getScore(destination)
 │   ├── background/             # Service worker: decodes XDR, scores, opens the warning popup
 │   ├── decode/                  # XDR → destination extraction (Stellar SDK)
-│   ├── intercept/                # Freighter signTransaction proxy + message-bridge protocol
-│   ├── lib/                       # Score → tier mapping
-│   └── popup/                      # React warning UI — default (dev) and intercept modes
+│   ├── history/                  # Decision history page (extension options page)
+│   ├── intercept/                 # Freighter signTransaction proxy + message-bridge protocol
+│   ├── lib/                        # Score → tier mapping, local decision history storage
+│   └── popup/                       # React warning UI — default (dev) and intercept modes
 └── README.md
 ```
+
+## Decision History
+
+Every proceed/cancel decision made in the warning popup is recorded locally: destination,
+asset (when present), score, tier, decision, and timestamp. Open it via the extension's
+**Options** page (right-click the toolbar icon → Options, or `chrome://extensions` → Gryd Lock →
+Details → Extension options).
+
+Privacy:
+
+- History lives only in `chrome.storage.local` on your device — it is never transmitted anywhere.
+- Storage is capped to the most recent 200 decisions; older entries are dropped automatically.
+- A **Clear history** button on the page deletes everything at once.
 
 ## How the Pieces Connect
 
@@ -137,6 +155,16 @@ src/background/background.ts      (service worker)
   extension via `chrome.runtime`. Decoding and scoring happen in the background worker rather than
   in `mainWorldEntry.ts` so the Stellar SDK ships once per browser session instead of being
   injected into every page (`mainWorld.js` is ~2&nbsp;KB; the SDK lives in `background.js` instead).
+- **Keyboard-first approval**: the warning is an approval dialog for a signing request, so it is
+  fully operable without a mouse. `src/popup/TierWarning.tsx` renders as a modal dialog
+  (`role="dialog"`, `aria-modal`, labelled by the tier heading) and:
+  - focuses **Cancel** on open for every tier — the safe choice is always one keypress away, and a
+    High/Critical warning never makes you hunt for focus;
+  - traps focus in the popup — Tab and Shift+Tab cycle through its interactive elements and wrap at
+    the ends, so focus can't land on browser or extension UI while a decision is pending;
+  - treats **Escape** as Cancel, routed through the same `onCancel` path as the button, so an
+    intercepted request declines identically however it was dismissed;
+  - leaves Enter/Space activation to native `<button>` behaviour rather than re-implementing it.
 - **Pure logic**: `src/intercept/resolveOutcome.ts` is the testable core — given a decode function,
   a score function, and a decision function, it returns `'allow' | 'proceed' | 'cancel'` with no
   Chrome APIs involved, so it's covered by ordinary Vitest unit tests.
@@ -195,6 +223,7 @@ that unit tests cannot provide:
 - [x] Popup renders one score across the four tiers. _(stub)_
 - [x] Fetch the score through the oracle adapter (stub score) — prove the query path end to end.
 - [x] Freighter interception: proxy `signTransaction`, decode the XDR, extract the destination, route it through the adapter.
+- [x] Local decision history: persist proceed/cancel decisions to `chrome.storage.local` (capped, on-device only) with a history page.
 - [ ] Swap the stub score for a live one from the adapter.
 - [ ] Generalise interception beyond Freighter.
 

@@ -10,6 +10,21 @@ interface TierWarningProps {
   devControl?: ReactNode
 }
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',')
+
+function focusableWithin(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => !el.hasAttribute('hidden') && el.getAttribute('aria-hidden') !== 'true',
+  )
+}
+
 export default function TierWarning({
   tier,
   score,
@@ -44,7 +59,7 @@ export default function TierWarning({
       }
     >
       {/* Icon paired with label so tier is never conveyed by colour alone (WCAG 1.4.1) */}
-      <h1>
+      <h1 id="tier-warning-title" aria-live="assertive">
         <span className="tier-icon" aria-hidden="true">
           {tier.icon}
         </span>{' '}
@@ -81,7 +96,7 @@ export default function TierWarning({
         </div>
       )}
       <div className="actions">
-        <button className="cancel" onClick={onCancel}>
+        <button className="cancel" onClick={onCancel} ref={cancelRef}>
           Cancel
         </button>
         <button className="proceed" onClick={onProceed} disabled={!proceedEnabled}>
