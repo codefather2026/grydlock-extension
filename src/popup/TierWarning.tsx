@@ -1,4 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import type { TierInfo } from '../lib/tiers'
 
 interface TierWarningProps {
@@ -33,6 +34,8 @@ export default function TierWarning({
   onProceed,
   devControl,
 }: TierWarningProps) {
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
   const highConfirmId = useId()
   const criticalConfirmId = useId()
   const [highConfirmed, setHighConfirmed] = useState(false)
@@ -47,10 +50,47 @@ export default function TierWarning({
         ? highConfirmed
         : criticalConfirmation.trim().toUpperCase() === criticalPhrase
 
+  useEffect(() => {
+    cancelRef.current?.focus()
+  }, [])
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      onCancel()
+      return
+    }
+
+    if (event.key !== 'Tab' || !dialogRef.current) {
+      return
+    }
+
+    const focusable = focusableWithin(dialogRef.current)
+    if (focusable.length === 0) {
+      return
+    }
+
+    const currentIndex = focusable.indexOf(document.activeElement as HTMLElement)
+    const nextIndex = event.shiftKey
+      ? currentIndex <= 0
+        ? focusable.length - 1
+        : currentIndex - 1
+      : currentIndex === -1 || currentIndex === focusable.length - 1
+        ? 0
+        : currentIndex + 1
+
+    event.preventDefault()
+    focusable[nextIndex].focus()
+  }
+
   return (
     <div
+      ref={dialogRef}
       className="popup"
       data-tier={tier.tier}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="tier-warning-title"
+      onKeyDown={handleKeyDown}
       style={
         {
           '--tier-accent-light': tier.colour,
